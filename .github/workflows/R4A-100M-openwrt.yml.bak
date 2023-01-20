@@ -22,7 +22,6 @@ on:
 env:
   REPO_URL: https://github.com/coolsnowwolf/lede
   REPO_BRANCH: master
-  REPO_COMMITID: 2569dc001c7a32f154367e5330eca2245f88376e
   FEEDS_CONF: feeds.conf.default
   CONFIG_FILE: R4A.config
   DIY_P1_SH: diy-part1.sh
@@ -59,14 +58,8 @@ jobs:
       working-directory: /workdir
       run: |
         df -hT $PWD
-        mkdir openwrt
-        cd openwrt
-        git init
-        git remote add openwrt $REPO_URL
-        git fetch --depth=1 $REPO_URL $REPO_COMMITID
-        git reset --hard FETCH_HEAD
+        git clone $REPO_URL -b $REPO_BRANCH openwrt
         ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
-        cd ..
 
     - name: Load custom feeds
       run: |
