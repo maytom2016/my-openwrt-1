@@ -1,53 +1,49 @@
-name: Build and Package SwitchHosts
+name: Build SwitchHosts for Arch Linux
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:  # 允许手动触发
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - name: 克隆仓库
+      uses: actions/checkout@v4
+      with:
+        repository: oldj/SwitchHosts
+        fetch-depth: 0  # 完整克隆历史
 
-      - name: Clone SwitchHosts
-        run: |
-          git clone --depth=1 https://github.com/oldj/SwitchHosts.git
-          cd SwitchHosts
-          git submodule update --init --recursive
+    - name: 缓存依赖
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.npm
+          ~/.electron
+          ~/.cache/electron
+          ~/.cache/electron-builder
+        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
+    - name: 设置 Node.js 环境
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
 
-      - name: Install dependencies
-        run: |
-          cd SwitchHosts
-          npm install
-          # 如果使用淘宝镜像（可选）
-          # npm config set registry https://registry.npmmirror.com
+    - name: 安装依赖
+      run: |
+        npm config set registry https://registry.npmmirror.com  # 淘宝 npm 源
+        npm ci --no-audit
 
-      - name: Build application
-        run: |
-          cd SwitchHosts
-          npm run build
+    - name: 构建项目
+      run: npm run build
 
-      - name: Package application
-        run: |
-          cd SwitchHosts
-          npm run make
+    - name: 生成安装包
+      run: npm run make  # 生成 pacman 格式包需要项目配置支持
 
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: switchhosts-dist
-          path: SwitchHosts/dist/
-          retention-days: 7
-
-      - name: Show build results
-        run: |
-          ls -lh SwitchHosts/dist/
-          echo "打包完成！生成的安装包在 dist 目录"
+    - name: 上传制品
+      uses: actions/upload-artifact@v4
+      with:
+        name: switchhosts-packages
+        path: ./dist/
+        retention-days: 3  # 自动清理旧制品
