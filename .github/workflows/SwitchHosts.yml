@@ -6,13 +6,16 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+    strategy:
+      matrix:
+        node-version: [20.x]
+
     steps:
     - name: 克隆仓库
       uses: actions/checkout@v4
       with:
         repository: oldj/SwitchHosts
-        fetch-depth: 0  # 完整克隆历史
+        fetch-depth: 0
 
     - name: 缓存依赖
       uses: actions/cache@v3
@@ -24,26 +27,24 @@ jobs:
           ~/.cache/electron-builder
         key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
 
-    - name: 设置 Node.js 环境
+    - name: 设置 Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '20.x'
+        node-version: ${{ matrix.node-version }}
         cache: 'npm'
 
     - name: 安装依赖
-      run: |
-        npm config set registry https://registry.npmmirror.com  # 淘宝 npm 源
-        npm ci --no-audit
+      run: npm ci --no-audit
 
     - name: 构建项目
       run: npm run build
 
     - name: 生成安装包
-      run: npm run make  # 生成 pacman 格式包需要项目配置支持
+      run: npm run make
 
     - name: 上传制品
       uses: actions/upload-artifact@v4
       with:
         name: switchhosts-packages
         path: ./dist/
-        retention-days: 3  # 自动清理旧制品
+        retention-days: 3
