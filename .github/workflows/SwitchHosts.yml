@@ -1,4 +1,4 @@
-name: Build SwitchHosts for Arch Linux
+name: Build and Package SwitchHosts
 
 on:
   workflow_dispatch:
@@ -17,67 +17,37 @@ jobs:
           cd SwitchHosts
           git submodule update --init --recursive
 
-      - name: Set up Docker (without containerd.io)
-        run: |
-          # 安装 Docker 但不安装 containerd.io
-          sudo apt-get update
-          sudo apt-get install -y docker-ce docker-ce-cli
-          sudo systemctl start docker
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
 
-          # 验证 Docker 运行
-          sudo docker run hello-world
-
-      - name: Build inside Arch Linux container
+      - name: Install dependencies
         run: |
-          # 创建构建脚本（与之前相同）
-          cat > build.sh << 'EOF'
-          #!/bin/bash
-          set -e
-          pacman -Syu --noconfirm
-          pacman -S --noconfirm base-devel git npm python make gcc
-          cd /SwitchHosts
+          cd SwitchHosts
           npm install
+          # 如果使用淘宝镜像（可选）
+          # npm config set registry https://registry.npmmirror.com
+
+      - name: Build application
+        run: |
+          cd SwitchHosts
           npm run build
-          mkdir -p pkgbuild
-          cat > pkgbuild/PKGBUILD << 'INNEREOF'
-          pkgname=switchhosts
-          pkgver=$(node -p "require('./package.json').version")
-          pkgrel=1
-          pkgdesc="Switch hosts quickly!"
-          arch=('x86_64')
-          url="https://github.com/oldj/SwitchHosts"
-          license=('MIT')
-          depends=('electron')
-          makedepends=('npm' 'git')
-          source=("file:///SwitchHosts")
-          sha256sums=('SKIP')
-          build() {
-            cd "$srcdir/SwitchHosts"
-            npm install
-            npm run build
-          }
-          package() {
-            cd "$srcdir/SwitchHosts"
-            install -Dm755 "dist/linux-unpacked/switchhosts" "$pkgdir/usr/bin/switchhosts"
-            install -Dm644 "resources/icons/icon.png" "$pkgdir/usr/share/pixmaps/switchhosts.png"
-            install -Dm644 "resources/linux/switchhosts.desktop" "$pkgdir/usr/share/applications/switchhosts.desktop"
-          }
-          INNEREOF
-          cd pkgbuild
-          makepkg -s --noconfirm
-          mkdir -p /mnt/output
-          cp *.pkg.tar.zst /mnt/output/
-          EOF
 
-          # 运行构建容器
-          sudo docker run --rm \
-            -v "$(pwd)/SwitchHosts:/SwitchHosts" \
-            -v "$(pwd)/output:/mnt/output" \
-            archlinux:latest \
-            /bin/bash -c "chmod +x /SwitchHosts/build.sh && /SwitchHosts/build.sh"
+      - name: Package application
+        run: |
+          cd SwitchHosts
+          npm run make
 
-      - name: Upload Artifact
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: switchhosts-archlinux-pkg
-          path: output/*.pkg.tar.zst
+          name: switchhosts-dist
+          path: SwitchHosts/dist/
+          retention-days: 7
+
+      - name: Show build results
+        run: |
+          ls -lh SwitchHosts/dist/
+          echo "打包完成！生成的安装包在 dist 目录"
